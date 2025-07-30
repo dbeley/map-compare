@@ -7,4 +7,4 @@ This project provides a small static website that lets you compare two places of
 Open `index.html` directly in a browser or host the repository with any static hosting solution such as GitHub Pages. The URL keeps the current map positions so copy‑pasting the address bar will restore the same views.
 It also stores whether map or satellite tiles are selected.
 
-Shapes can be moved or edited in either map using the edit tool that appears once a drawing exists.
+Each shape has a drag handle at its center so you can move it freely. Shapes keep the same size across both maps.

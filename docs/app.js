@@ -74,159 +74,194 @@ const drawnItems2 = new L.FeatureGroup();
 map2.addLayer(drawnItems2);
 
 const drawControl = new L.Control.Draw({
-  edit: {
-    featureGroup: drawnItems1
-  },
-  draw: {
-    circle: false,
-    circlemarker: false
-  }
+  edit: { featureGroup: drawnItems1 },
+  draw: { circle: false, circlemarker: false }
 });
 map1.addControl(drawControl);
 
 const editControl2 = new L.Control.Draw({
-  edit: {
-    featureGroup: drawnItems2
-  },
+  edit: { featureGroup: drawnItems2 },
   draw: false
 });
 map2.addControl(editControl2);
 
+function mapLatLngsToPoints(map, latlngs) {
+  if (!Array.isArray(latlngs)) {
+    return map.latLngToContainerPoint(latlngs);
+  }
+  if (latlngs.length && Array.isArray(latlngs[0])) {
+    return latlngs.map(ll => mapLatLngsToPoints(map, ll));
+  }
+  return latlngs.map(ll => map.latLngToContainerPoint(ll));
+}
+
+function mapPointsToLatLngs(map, pts) {
+  if (!Array.isArray(pts)) {
+    return map.containerPointToLatLng(pts);
+  }
+  if (pts.length && Array.isArray(pts[0])) {
+    return pts.map(p => mapPointsToLatLngs(map, p));
+  }
+  return pts.map(p => map.containerPointToLatLng(p));
+}
+
+function subtractCenter(pts, center) {
+  if (!Array.isArray(pts)) {
+    return L.point(pts.x - center.x, pts.y - center.y);
+  }
+  if (pts.length && Array.isArray(pts[0])) {
+    return pts.map(p => subtractCenter(p, center));
+  }
+  return pts.map(p => L.point(p.x - center.x, p.y - center.y));
+}
+
+function addCenter(offsets, center) {
+  if (!Array.isArray(offsets)) {
+    return L.point(offsets.x + center.x, offsets.y + center.y);
+  }
+  if (offsets.length && Array.isArray(offsets[0])) {
+    return offsets.map(o => addCenter(o, center));
+  }
+  return offsets.map(o => L.point(o.x + center.x, o.y + center.y));
+}
+
+function getLayerCenter(map, layer) {
+  if (layer.getBounds) {
+    return map.latLngToContainerPoint(layer.getBounds().getCenter());
+  }
+  return map.latLngToContainerPoint(layer.getLatLng());
+}
+
+function applyGeometry(map, layer, center, offsets) {
+  if (layer.getLatLngs) {
+    const pts = addCenter(offsets, center);
+    layer.setLatLngs(mapPointsToLatLngs(map, pts));
+  } else {
+    layer.setLatLng(map.containerPointToLatLng(center));
+  }
+}
+
+function computeOffsets(map, layer, center) {
+  if (layer.getLatLngs) {
+    const pts = mapLatLngsToPoints(map, layer.getLatLngs());
+    return subtractCenter(pts, center);
+  }
+  return null;
+}
+
+function createDragHandle(map, center) {
+  const icon = L.divIcon({className: 'drag-handle'});
+  return L.marker(map.containerPointToLatLng(center), {icon, draggable: true});
+}
+
 const shapePairs = [];
 
-function latLngsToPoints(latlngs) {
-  if (!Array.isArray(latlngs)) {
-    return map1.latLngToContainerPoint(latlngs);
-  }
-  if (latlngs.length && Array.isArray(latlngs[0])) {
-    return latlngs.map(latLngsToPoints);
-  }
-  return latlngs.map(ll => map1.latLngToContainerPoint(ll));
-}
-
-function latLngsToPoints2(latlngs) {
-  if (!Array.isArray(latlngs)) {
-    return map2.latLngToContainerPoint(latlngs);
-  }
-  if (latlngs.length && Array.isArray(latlngs[0])) {
-    return latlngs.map(latLngsToPoints2);
-  }
-  return latlngs.map(ll => map2.latLngToContainerPoint(ll));
-}
-
-function pointsToLatLngs(pts) {
-  if (!Array.isArray(pts)) {
-    return map2.containerPointToLatLng(pts);
-  }
-  if (pts.length && Array.isArray(pts[0])) {
-    return pts.map(pointsToLatLngs);
-  }
-  return pts.map(p => map2.containerPointToLatLng(p));
-}
-
-function pointsToLatLngs1(pts) {
-  if (!Array.isArray(pts)) {
-    return map1.containerPointToLatLng(pts);
-  }
-  if (pts.length && Array.isArray(pts[0])) {
-    return pts.map(pointsToLatLngs1);
-  }
-  return pts.map(p => map1.containerPointToLatLng(p));
-}
-
-function applyPointsToLayer1(layer, pts) {
-  if (layer.setLatLngs) {
-    layer.setLatLngs(pointsToLatLngs1(pts));
-  } else if (layer.setLatLng) {
-    layer.setLatLng(pointsToLatLngs1(pts));
-  }
-}
-
-function applyPointsToLayer(layer, pts) {
-  if (layer.setLatLngs) {
-    layer.setLatLngs(pointsToLatLngs(pts));
-  } else if (layer.setLatLng) {
-    layer.setLatLng(pointsToLatLngs(pts));
-  }
-}
-
-function createClone(layer) {
-  let pair;
+function createPair(layer) {
+  const center1 = getLayerCenter(map1, layer);
+  const offsets = computeOffsets(map1, layer, center1);
+  let layer2;
   if (layer.getLatLngs) {
-    const pts = latLngsToPoints(layer.getLatLngs());
-    const latlngs2 = pointsToLatLngs(pts);
-    let clone;
-    if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
-      clone = L.polyline(latlngs2, layer.options);
-    } else {
-      clone = L.polygon(latlngs2, layer.options);
-    }
-    pair = {layer1: layer, layer2: clone, points: pts};
-  } else if (layer.getLatLng) {
-    const pt = map1.latLngToContainerPoint(layer.getLatLng());
-    const clone = L.marker(map2.containerPointToLatLng(pt), layer.options);
-    pair = {layer1: layer, layer2: clone, points: pt};
+    layer2 = L.polygon(mapPointsToLatLngs(map2, addCenter(offsets, center1)), layer.options);
+  } else {
+    layer2 = L.marker(map2.containerPointToLatLng(center1), Object.assign({}, layer.options, {draggable: true}));
   }
+  const center2 = getLayerCenter(map2, layer2);
+  const handle1 = layer.getLatLngs ? createDragHandle(map1, center1) : layer;
+  const handle2 = layer2.getLatLngs ? createDragHandle(map2, center2) : layer2;
+  if (layer.getLatLngs) drawnItems1.addLayer(handle1);
+  if (layer2.getLatLngs) drawnItems2.addLayer(handle2);
+
+  const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2};
+
+  if (!layer.getLatLngs) {
+    layer.on('drag', () => { pair.center1 = getLayerCenter(map1, layer); });
+    layer2.on('drag', () => { pair.center2 = getLayerCenter(map2, layer2); });
+  }
+
+  if (handle1 !== layer) {
+    handle1.on('drag', () => {
+      pair.center1 = getLayerCenter(map1, handle1);
+      applyGeometry(map1, layer, pair.center1, pair.offsets);
+    });
+  }
+  if (handle2 !== layer2) {
+    handle2.on('drag', () => {
+      pair.center2 = getLayerCenter(map2, handle2);
+      applyGeometry(map2, layer2, pair.center2, pair.offsets);
+    });
+  }
+
   return pair;
 }
 
-function updatePairsFromMap1() {
-  shapePairs.forEach(p => {
-    if (p.layer1.getLatLngs) {
-      p.points = latLngsToPoints(p.layer1.getLatLngs());
-    } else {
-      p.points = map1.latLngToContainerPoint(p.layer1.getLatLng());
+function updatePairFromEdit(pair, fromMap1) {
+  if (fromMap1) {
+    pair.center1 = getLayerCenter(map1, pair.layer1);
+    pair.offsets = computeOffsets(map1, pair.layer1, pair.center1);
+    if (pair.handle1 !== pair.layer1) {
+      pair.handle1.setLatLng(map1.containerPointToLatLng(pair.center1));
     }
-    applyPointsToLayer(p.layer2, p.points);
-  });
-}
-
-function updatePairsFromMap2() {
-  shapePairs.forEach(p => {
-    applyPointsToLayer(p.layer2, p.points);
-  });
-}
-
-map1.on(L.Draw.Event.CREATED, function (event) {
-  const layer = event.layer;
-  drawnItems1.addLayer(layer);
-  const pair = createClone(layer);
-  if (pair) {
-    drawnItems2.addLayer(pair.layer2);
-    shapePairs.push(pair);
+    applyGeometry(map2, pair.layer2, pair.center2, pair.offsets);
+  } else {
+    pair.center2 = getLayerCenter(map2, pair.layer2);
+    pair.offsets = computeOffsets(map2, pair.layer2, pair.center2);
+    if (pair.handle2 !== pair.layer2) {
+      pair.handle2.setLatLng(map2.containerPointToLatLng(pair.center2));
+    }
+    applyGeometry(map1, pair.layer1, pair.center1, pair.offsets);
   }
+}
+
+map1.on(L.Draw.Event.CREATED, e => {
+  const layer = e.layer;
+  drawnItems1.addLayer(layer);
+  if (layer instanceof L.Marker) layer.options.draggable = true;
+  const pair = createPair(layer);
+  drawnItems2.addLayer(pair.layer2);
+  shapePairs.push(pair);
 });
 
-map1.on('draw:edited', updatePairsFromMap1);
-map1.on('draw:deleted', function (e) {
-  e.layers.eachLayer(function (layer) {
+map1.on('draw:edited', e => {
+  e.layers.eachLayer(layer => {
+    const pair = shapePairs.find(p => p.layer1 === layer);
+    if (pair) updatePairFromEdit(pair, true);
+  });
+});
+
+map2.on('draw:edited', e => {
+  e.layers.eachLayer(layer => {
+    const pair = shapePairs.find(p => p.layer2 === layer);
+    if (pair) updatePairFromEdit(pair, false);
+  });
+});
+
+map1.on('draw:deleted', e => {
+  e.layers.eachLayer(layer => {
     const idx = shapePairs.findIndex(p => p.layer1 === layer);
     if (idx !== -1) {
       drawnItems2.removeLayer(shapePairs[idx].layer2);
+      if (shapePairs[idx].handle1 !== shapePairs[idx].layer1) {
+        drawnItems1.removeLayer(shapePairs[idx].handle1);
+      }
+      if (shapePairs[idx].handle2 !== shapePairs[idx].layer2) {
+        drawnItems2.removeLayer(shapePairs[idx].handle2);
+      }
       shapePairs.splice(idx, 1);
     }
   });
 });
 
-map2.on('draw:edited', function (e) {
-  e.layers.eachLayer(function (layer) {
-    const idx = shapePairs.findIndex(p => p.layer2 === layer);
-    if (idx !== -1) {
-      if (layer.getLatLngs) {
-        shapePairs[idx].points = latLngsToPoints2(layer.getLatLngs());
-      } else {
-        shapePairs[idx].points = map2.latLngToContainerPoint(layer.getLatLng());
-      }
-      applyPointsToLayer1(shapePairs[idx].layer1, shapePairs[idx].points);
-    }
-  });
-});
-
-map2.on('draw:deleted', function (e) {
-  e.layers.eachLayer(function (layer) {
+map2.on('draw:deleted', e => {
+  e.layers.eachLayer(layer => {
     const idx = shapePairs.findIndex(p => p.layer2 === layer);
     if (idx !== -1) {
       drawnItems1.removeLayer(shapePairs[idx].layer1);
+      if (shapePairs[idx].handle1 !== shapePairs[idx].layer1) {
+        drawnItems1.removeLayer(shapePairs[idx].handle1);
+      }
+      if (shapePairs[idx].handle2 !== shapePairs[idx].layer2) {
+        drawnItems2.removeLayer(shapePairs[idx].handle2);
+      }
       shapePairs.splice(idx, 1);
     }
   });
@@ -254,15 +289,13 @@ function syncMap1() {
   movingMap1 = false;
 }
 
-map1.on('moveend zoomend', function () {
+map1.on('moveend zoomend', () => {
   if (syncZoom) syncMap2();
-  updatePairsFromMap1();
   updateUrl();
 });
 
-map2.on('moveend zoomend', function () {
+map2.on('moveend zoomend', () => {
   if (syncZoom) syncMap1();
-  updatePairsFromMap2();
   updateUrl();
 });
 
@@ -272,7 +305,7 @@ function updateToggleText() {
 }
 updateToggleText();
 
-toggleBtn.addEventListener('click', function () {
+toggleBtn.addEventListener('click', () => {
   syncZoom = !syncZoom;
   if (syncZoom) {
     syncMap2();
@@ -281,6 +314,6 @@ toggleBtn.addEventListener('click', function () {
   updateUrl();
 });
 
-document.getElementById('layer-select').addEventListener('change', function (e) {
+document.getElementById('layer-select').addEventListener('change', e => {
   setLayer(e.target.value);
 });
