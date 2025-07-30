@@ -76,21 +76,106 @@ map2.addLayer(drawnItems2);
 const drawControl = new L.Control.Draw({
   edit: {
     featureGroup: drawnItems1
+  },
+  draw: {
+    circle: false,
+    circlemarker: false
   }
 });
 map1.addControl(drawControl);
 
+const shapePairs = [];
+
+function latLngsToPoints(latlngs) {
+  if (!Array.isArray(latlngs)) {
+    return map1.latLngToContainerPoint(latlngs);
+  }
+  if (latlngs.length && Array.isArray(latlngs[0])) {
+    return latlngs.map(latLngsToPoints);
+  }
+  return latlngs.map(ll => map1.latLngToContainerPoint(ll));
+}
+
+function pointsToLatLngs(pts) {
+  if (!Array.isArray(pts)) {
+    return map2.containerPointToLatLng(pts);
+  }
+  if (pts.length && Array.isArray(pts[0])) {
+    return pts.map(pointsToLatLngs);
+  }
+  return pts.map(p => map2.containerPointToLatLng(p));
+}
+
+function applyPointsToLayer(layer, pts) {
+  if (layer.setLatLngs) {
+    layer.setLatLngs(pointsToLatLngs(pts));
+  } else if (layer.setLatLng) {
+    layer.setLatLng(pointsToLatLngs(pts));
+  }
+}
+
+function createClone(layer) {
+  let pair;
+  if (layer.getLatLngs) {
+    const pts = latLngsToPoints(layer.getLatLngs());
+    const latlngs2 = pointsToLatLngs(pts);
+    let clone;
+    if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+      clone = L.polyline(latlngs2, layer.options);
+    } else {
+      clone = L.polygon(latlngs2, layer.options);
+    }
+    pair = {layer1: layer, layer2: clone, points: pts};
+  } else if (layer.getLatLng) {
+    const pt = map1.latLngToContainerPoint(layer.getLatLng());
+    const clone = L.marker(map2.containerPointToLatLng(pt), layer.options);
+    pair = {layer1: layer, layer2: clone, points: pt};
+  }
+  return pair;
+}
+
+function updatePairsFromMap1() {
+  shapePairs.forEach(p => {
+    if (p.layer1.getLatLngs) {
+      p.points = latLngsToPoints(p.layer1.getLatLngs());
+    } else {
+      p.points = map1.latLngToContainerPoint(p.layer1.getLatLng());
+    }
+    applyPointsToLayer(p.layer2, p.points);
+  });
+}
+
+function updatePairsFromMap2() {
+  shapePairs.forEach(p => {
+    applyPointsToLayer(p.layer2, p.points);
+  });
+}
+
 map1.on(L.Draw.Event.CREATED, function (event) {
   const layer = event.layer;
   drawnItems1.addLayer(layer);
-  const geo = layer.toGeoJSON();
-  const clone = L.geoJSON(geo);
-  drawnItems2.addLayer(clone);
+  const pair = createClone(layer);
+  if (pair) {
+    drawnItems2.addLayer(pair.layer2);
+    shapePairs.push(pair);
+  }
+});
+
+map1.on('draw:edited', updatePairsFromMap1);
+map1.on('draw:deleted', function (e) {
+  e.layers.eachLayer(function (layer) {
+    const idx = shapePairs.findIndex(p => p.layer1 === layer);
+    if (idx !== -1) {
+      drawnItems2.removeLayer(shapePairs[idx].layer2);
+      shapePairs.splice(idx, 1);
+    }
+  });
 });
 
 function clearDrawings() {
   drawnItems1.clearLayers();
   drawnItems2.clearLayers();
+  shapePairs.length = 0;
 }
 
 document.getElementById('clear').addEventListener('click', clearDrawings);
@@ -111,11 +196,13 @@ function syncMap1() {
 
 map1.on('moveend zoomend', function () {
   if (syncZoom) syncMap2();
+  updatePairsFromMap1();
   updateUrl();
 });
 
 map2.on('moveend zoomend', function () {
   if (syncZoom) syncMap1();
+  updatePairsFromMap2();
   updateUrl();
 });
 
