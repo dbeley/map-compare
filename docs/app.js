@@ -153,8 +153,17 @@ const shapePairs = [];
 
 function updateAllShapes() {
   shapePairs.forEach(p => {
+    // keep layer1 geometry fixed relative to its stored center
     applyGeometry(p.layer1, p.center1, p.offsets, map1);
+
+    // recompute the center of the second layer so it stays at the same
+    // screen offset from the current map center
+    p.center2 = addLatLngs(p.offset2, map2.getCenter(), map2);
     applyGeometry(p.layer2, p.center2, p.offsets, map2);
+
+    if (p.handle2 !== p.layer2) {
+      p.handle2.setLatLng(p.center2);
+    }
   });
 }
 
@@ -162,6 +171,7 @@ function createPair(layer) {
   const center1 = getLayerCenterLatLng(layer);
   const offsets = computeOffsets(layer, center1, map1);
   const center2 = map2.getCenter();
+  const offset2 = subtractLatLngs(center2, map2.getCenter(), map2);
   let layer2;
   if (layer.getLatLngs) {
     layer2 = L.polygon(addLatLngs(offsets, center2, map2), layer.options);
@@ -173,11 +183,14 @@ function createPair(layer) {
   if (layer.getLatLngs) handles1.addLayer(handle1);
   if (layer2.getLatLngs) handles2.addLayer(handle2);
 
-  const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2};
+  const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2, offset2};
 
   if (!layer.getLatLngs) {
     layer.on('drag', () => { pair.center1 = getLayerCenterLatLng(layer); });
-    layer2.on('drag', () => { pair.center2 = getLayerCenterLatLng(layer2); });
+    layer2.on('drag', () => {
+      pair.center2 = getLayerCenterLatLng(layer2);
+      pair.offset2 = subtractLatLngs(pair.center2, map2.getCenter(), map2);
+    });
   }
 
   if (handle1 !== layer) {
@@ -189,6 +202,7 @@ function createPair(layer) {
   if (handle2 !== layer2) {
     handle2.on('drag', () => {
       pair.center2 = handle2.getLatLng();
+      pair.offset2 = subtractLatLngs(pair.center2, map2.getCenter(), map2);
       applyGeometry(layer2, pair.center2, pair.offsets, map2);
     });
   }
@@ -271,6 +285,11 @@ map2.on('moveend zoomend', () => {
   if (syncZoom) syncMap1();
   updateAllShapes();
   updateUrl();
+});
+
+// keep shapes visible while the user pans or zooms
+map2.on('move zoom', () => {
+  updateAllShapes();
 });
 
 const toggleBtn = document.getElementById('toggle-sync');
