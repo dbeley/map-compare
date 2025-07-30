@@ -68,14 +68,14 @@ document.getElementById('clear').addEventListener('click', clearDrawings);
 function syncMap2() {
   if (movingMap1) return;
   movingMap2 = true;
-  map2.setView(map1.getCenter(), map1.getZoom());
+  map2.setZoom(map1.getZoom());
   movingMap2 = false;
 }
 
 function syncMap1() {
   if (movingMap2) return;
   movingMap1 = true;
-  map1.setView(map2.getCenter(), map2.getZoom());
+  map1.setZoom(map2.getZoom());
   movingMap1 = false;
 }
 
