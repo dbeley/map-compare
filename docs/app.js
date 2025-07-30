@@ -163,15 +163,9 @@ const shapePairs = [];
 
 function updateAllShapes() {
   shapePairs.forEach(p => {
-    // keep layer1 geometry fixed relative to its stored center
-    applyGeometry(p.layer1, p.center1, p.offsets, map1);
-
-    // recompute the center of the second layer so it stays at the same
-    // screen offset from the current map center
+    // keep the second layer's center relative to the current view
     p.center2 = addLatLngs(p.offset2, map2.getCenter(), map2);
-    const scale = map2.getZoomScale(map2.getZoom(), p.baseZoom);
-    const scaled = scaleOffsets(p.offsets, scale);
-    applyGeometry(p.layer2, p.center2, scaled, map2);
+    applyGeometry(p.layer2, p.center2, p.offsets, map2);
 
     if (p.handle2 !== p.layer2) {
       p.handle2.setLatLng(p.center2);
@@ -187,8 +181,7 @@ function createPair(layer) {
   const offset2 = subtractLatLngs(center2, map2.getCenter(), map2);
   let layer2;
   if (layer.getLatLngs) {
-    const scale = map2.getZoomScale(map2.getZoom(), baseZoom);
-    layer2 = L.polygon(addLatLngs(scaleOffsets(offsets, scale), center2, map2), layer.options);
+    layer2 = L.polygon(addLatLngs(offsets, center2, map2), layer.options);
   } else {
     layer2 = L.marker(center2, Object.assign({}, layer.options, {draggable: true}));
   }
@@ -210,15 +203,15 @@ function createPair(layer) {
   if (handle1 !== layer) {
     handle1.on('drag', () => {
       pair.center1 = handle1.getLatLng();
-      applyGeometry(layer, pair.center1, pair.offsets, map1);
+      const s = map1.getZoomScale(map1.getZoom(), pair.baseZoom);
+      applyGeometry(layer, pair.center1, scaleOffsets(pair.offsets, s), map1);
     });
   }
   if (handle2 !== layer2) {
     handle2.on('drag', () => {
       pair.center2 = handle2.getLatLng();
       pair.offset2 = subtractLatLngs(pair.center2, map2.getCenter(), map2);
-      const s = map2.getZoomScale(map2.getZoom(), pair.baseZoom);
-      applyGeometry(layer2, pair.center2, scaleOffsets(pair.offsets, s), map2);
+      applyGeometry(layer2, pair.center2, pair.offsets, map2);
     });
   }
 
