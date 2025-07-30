@@ -144,6 +144,16 @@ function computeOffsets(layer, center, map) {
   return null;
 }
 
+function scaleOffsets(offsets, scale) {
+  if (!Array.isArray(offsets)) {
+    return L.point(offsets.x * scale, offsets.y * scale);
+  }
+  if (offsets.length && Array.isArray(offsets[0])) {
+    return offsets.map(o => scaleOffsets(o, scale));
+  }
+  return offsets.map(o => L.point(o.x * scale, o.y * scale));
+}
+
 function createDragHandle(center) {
   const icon = L.divIcon({className: 'drag-handle', iconSize: [16, 16]});
   return L.marker(center, {icon, draggable: true, interactive: true});
@@ -153,18 +163,32 @@ const shapePairs = [];
 
 function updateAllShapes() {
   shapePairs.forEach(p => {
+    // keep layer1 geometry fixed relative to its stored center
     applyGeometry(p.layer1, p.center1, p.offsets, map1);
-    applyGeometry(p.layer2, p.center2, p.offsets, map2);
+
+    // recompute the center of the second layer so it stays at the same
+    // screen offset from the current map center
+    p.center2 = addLatLngs(p.offset2, map2.getCenter(), map2);
+    const scale = map2.getZoomScale(map2.getZoom(), p.baseZoom);
+    const scaled = scaleOffsets(p.offsets, scale);
+    applyGeometry(p.layer2, p.center2, scaled, map2);
+
+    if (p.handle2 !== p.layer2) {
+      p.handle2.setLatLng(p.center2);
+    }
   });
 }
 
 function createPair(layer) {
   const center1 = getLayerCenterLatLng(layer);
   const offsets = computeOffsets(layer, center1, map1);
+  const baseZoom = map1.getZoom();
   const center2 = map2.getCenter();
+  const offset2 = subtractLatLngs(center2, map2.getCenter(), map2);
   let layer2;
   if (layer.getLatLngs) {
-    layer2 = L.polygon(addLatLngs(offsets, center2, map2), layer.options);
+    const scale = map2.getZoomScale(map2.getZoom(), baseZoom);
+    layer2 = L.polygon(addLatLngs(scaleOffsets(offsets, scale), center2, map2), layer.options);
   } else {
     layer2 = L.marker(center2, Object.assign({}, layer.options, {draggable: true}));
   }
@@ -173,11 +197,14 @@ function createPair(layer) {
   if (layer.getLatLngs) handles1.addLayer(handle1);
   if (layer2.getLatLngs) handles2.addLayer(handle2);
 
-  const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2};
+  const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2, offset2, baseZoom};
 
   if (!layer.getLatLngs) {
     layer.on('drag', () => { pair.center1 = getLayerCenterLatLng(layer); });
-    layer2.on('drag', () => { pair.center2 = getLayerCenterLatLng(layer2); });
+    layer2.on('drag', () => {
+      pair.center2 = getLayerCenterLatLng(layer2);
+      pair.offset2 = subtractLatLngs(pair.center2, map2.getCenter(), map2);
+    });
   }
 
   if (handle1 !== layer) {
@@ -189,7 +216,9 @@ function createPair(layer) {
   if (handle2 !== layer2) {
     handle2.on('drag', () => {
       pair.center2 = handle2.getLatLng();
-      applyGeometry(layer2, pair.center2, pair.offsets, map2);
+      pair.offset2 = subtractLatLngs(pair.center2, map2.getCenter(), map2);
+      const s = map2.getZoomScale(map2.getZoom(), pair.baseZoom);
+      applyGeometry(layer2, pair.center2, scaleOffsets(pair.offsets, s), map2);
     });
   }
 
@@ -271,6 +300,11 @@ map2.on('moveend zoomend', () => {
   if (syncZoom) syncMap1();
   updateAllShapes();
   updateUrl();
+});
+
+// keep shapes visible while the user pans or zooms
+map2.on('move zoom', () => {
+  updateAllShapes();
 });
 
 const toggleBtn = document.getElementById('toggle-sync');
