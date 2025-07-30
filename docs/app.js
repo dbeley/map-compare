@@ -78,16 +78,10 @@ const handles2 = new L.FeatureGroup();
 map2.addLayer(handles2);
 
 const drawControl = new L.Control.Draw({
-  edit: { featureGroup: drawnItems1 },
+  edit: false,
   draw: { circle: false, circlemarker: false }
 });
 map1.addControl(drawControl);
-
-const editControl2 = new L.Control.Draw({
-  edit: { featureGroup: drawnItems2 },
-  draw: false
-});
-map2.addControl(editControl2);
 
 function mapLatLngsToPoints(map, latlngs) {
   if (!Array.isArray(latlngs)) {
@@ -198,24 +192,6 @@ function createPair(layer) {
   return pair;
 }
 
-function updatePairFromEdit(pair, fromMap1) {
-  if (fromMap1) {
-    pair.center1 = getLayerCenter(map1, pair.layer1);
-    pair.offsets = computeOffsets(map1, pair.layer1, pair.center1);
-    if (pair.handle1 !== pair.layer1) {
-      pair.handle1.setLatLng(map1.containerPointToLatLng(pair.center1));
-    }
-    applyGeometry(map2, pair.layer2, pair.center2, pair.offsets);
-  } else {
-    pair.center2 = getLayerCenter(map2, pair.layer2);
-    pair.offsets = computeOffsets(map2, pair.layer2, pair.center2);
-    if (pair.handle2 !== pair.layer2) {
-      pair.handle2.setLatLng(map2.containerPointToLatLng(pair.center2));
-    }
-    applyGeometry(map1, pair.layer1, pair.center1, pair.offsets);
-  }
-}
-
 map1.on(L.Draw.Event.CREATED, e => {
   const layer = e.layer;
   drawnItems1.addLayer(layer);
@@ -223,20 +199,6 @@ map1.on(L.Draw.Event.CREATED, e => {
   const pair = createPair(layer);
   drawnItems2.addLayer(pair.layer2);
   shapePairs.push(pair);
-});
-
-map1.on('draw:edited', e => {
-  e.layers.eachLayer(layer => {
-    const pair = shapePairs.find(p => p.layer1 === layer);
-    if (pair) updatePairFromEdit(pair, true);
-  });
-});
-
-map2.on('draw:edited', e => {
-  e.layers.eachLayer(layer => {
-    const pair = shapePairs.find(p => p.layer2 === layer);
-    if (pair) updatePairFromEdit(pair, false);
-  });
 });
 
 map1.on('draw:deleted', e => {
