@@ -1,0 +1,19 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+#maps {
+  display: flex;
+  height: calc(100% - 40px);
+}
+
+.map {
+  flex: 1;
+}
+
+#controls {
+  padding: 5px;
+  background: #eee;
+  height: 40px;
+}
