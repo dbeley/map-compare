@@ -79,7 +79,14 @@ map2.addLayer(handles2);
 
 const drawControl = new L.Control.Draw({
   edit: { featureGroup: drawnItems1, edit: false, remove: true },
-  draw: { marker: false, circle: false, circlemarker: false }
+  draw: {
+    polyline: {},
+    polygon: {},
+    rectangle: {},
+    marker: false,
+    circle: false,
+    circlemarker: false
+  }
 });
 map1.addControl(drawControl);
 
@@ -126,8 +133,8 @@ function computeOffsets(layer, center) {
 }
 
 function createDragHandle(center) {
-  const icon = L.divIcon({className: 'drag-handle'});
-  return L.marker(center, {icon, draggable: true});
+  const icon = L.divIcon({className: 'drag-handle', iconSize: [16, 16]});
+  return L.marker(center, {icon, draggable: true, interactive: true});
 }
 
 const shapePairs = [];
