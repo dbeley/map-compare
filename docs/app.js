@@ -78,8 +78,8 @@ const handles2 = new L.FeatureGroup();
 map2.addLayer(handles2);
 
 const drawControl = new L.Control.Draw({
-  edit: false,
-  draw: { circle: false, circlemarker: false }
+  edit: { featureGroup: drawnItems1, edit: false, remove: true },
+  draw: { marker: false, circle: false, circlemarker: false }
 });
 map1.addControl(drawControl);
 
