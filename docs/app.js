@@ -83,109 +83,87 @@ const drawControl = new L.Control.Draw({
 });
 map1.addControl(drawControl);
 
-function mapLatLngsToPoints(map, latlngs) {
+function subtractLatLngs(latlngs, center) {
   if (!Array.isArray(latlngs)) {
-    return map.latLngToContainerPoint(latlngs);
+    return L.latLng(latlngs.lat - center.lat, latlngs.lng - center.lng);
   }
   if (latlngs.length && Array.isArray(latlngs[0])) {
-    return latlngs.map(ll => mapLatLngsToPoints(map, ll));
+    return latlngs.map(ll => subtractLatLngs(ll, center));
   }
-  return latlngs.map(ll => map.latLngToContainerPoint(ll));
+  return latlngs.map(ll => L.latLng(ll.lat - center.lat, ll.lng - center.lng));
 }
 
-function mapPointsToLatLngs(map, pts) {
-  if (!Array.isArray(pts)) {
-    return map.containerPointToLatLng(pts);
-  }
-  if (pts.length && Array.isArray(pts[0])) {
-    return pts.map(p => mapPointsToLatLngs(map, p));
-  }
-  return pts.map(p => map.containerPointToLatLng(p));
-}
-
-function subtractCenter(pts, center) {
-  if (!Array.isArray(pts)) {
-    return L.point(pts.x - center.x, pts.y - center.y);
-  }
-  if (pts.length && Array.isArray(pts[0])) {
-    return pts.map(p => subtractCenter(p, center));
-  }
-  return pts.map(p => L.point(p.x - center.x, p.y - center.y));
-}
-
-function addCenter(offsets, center) {
+function addLatLngs(offsets, center) {
   if (!Array.isArray(offsets)) {
-    return L.point(offsets.x + center.x, offsets.y + center.y);
+    return L.latLng(offsets.lat + center.lat, offsets.lng + center.lng);
   }
   if (offsets.length && Array.isArray(offsets[0])) {
-    return offsets.map(o => addCenter(o, center));
+    return offsets.map(o => addLatLngs(o, center));
   }
-  return offsets.map(o => L.point(o.x + center.x, o.y + center.y));
+  return offsets.map(o => L.latLng(o.lat + center.lat, o.lng + center.lng));
 }
 
-function getLayerCenter(map, layer) {
+function getLayerCenterLatLng(layer) {
   if (layer.getBounds) {
-    return map.latLngToContainerPoint(layer.getBounds().getCenter());
+    return layer.getBounds().getCenter();
   }
-  return map.latLngToContainerPoint(layer.getLatLng());
+  return layer.getLatLng();
 }
 
-function applyGeometry(map, layer, center, offsets) {
+function applyGeometry(layer, center, offsets) {
   if (layer.getLatLngs) {
-    const pts = addCenter(offsets, center);
-    layer.setLatLngs(mapPointsToLatLngs(map, pts));
+    layer.setLatLngs(addLatLngs(offsets, center));
   } else {
-    layer.setLatLng(map.containerPointToLatLng(center));
+    layer.setLatLng(center);
   }
 }
 
-function computeOffsets(map, layer, center) {
+function computeOffsets(layer, center) {
   if (layer.getLatLngs) {
-    const pts = mapLatLngsToPoints(map, layer.getLatLngs());
-    return subtractCenter(pts, center);
+    return subtractLatLngs(layer.getLatLngs(), center);
   }
   return null;
 }
 
-function createDragHandle(map, center) {
+function createDragHandle(center) {
   const icon = L.divIcon({className: 'drag-handle'});
-  return L.marker(map.containerPointToLatLng(center), {icon, draggable: true});
+  return L.marker(center, {icon, draggable: true});
 }
 
 const shapePairs = [];
 
 function createPair(layer) {
-  const center1 = getLayerCenter(map1, layer);
-  const offsets = computeOffsets(map1, layer, center1);
+  const center1 = getLayerCenterLatLng(layer);
+  const offsets = computeOffsets(layer, center1);
   let layer2;
   if (layer.getLatLngs) {
-    layer2 = L.polygon(mapPointsToLatLngs(map2, addCenter(offsets, center1)), layer.options);
+    layer2 = L.polygon(addLatLngs(offsets, center1), layer.options);
   } else {
-    layer2 = L.marker(map2.containerPointToLatLng(center1), Object.assign({}, layer.options, {draggable: true}));
+    layer2 = L.marker(center1, Object.assign({}, layer.options, {draggable: true}));
   }
-  const center2 = getLayerCenter(map2, layer2);
-  const handle1 = layer.getLatLngs ? createDragHandle(map1, center1) : layer;
-  const handle2 = layer2.getLatLngs ? createDragHandle(map2, center2) : layer2;
+  const center2 = getLayerCenterLatLng(layer2);
+  const handle1 = layer.getLatLngs ? createDragHandle(center1) : layer;
+  const handle2 = layer2.getLatLngs ? createDragHandle(center2) : layer2;
   if (layer.getLatLngs) handles1.addLayer(handle1);
   if (layer2.getLatLngs) handles2.addLayer(handle2);
 
   const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2};
 
   if (!layer.getLatLngs) {
-    layer.on('drag', () => { pair.center1 = getLayerCenter(map1, layer); });
-    layer2.on('drag', () => { pair.center2 = getLayerCenter(map2, layer2); });
+    layer.on('drag', () => { pair.center1 = getLayerCenterLatLng(layer); });
+    layer2.on('drag', () => { pair.center2 = getLayerCenterLatLng(layer2); });
   }
 
   if (handle1 !== layer) {
     handle1.on('drag', () => {
-      pair.center1 = getLayerCenter(map1, handle1);
-      applyGeometry(map1, layer, pair.center1, pair.offsets);
+      pair.center1 = handle1.getLatLng();
+      applyGeometry(layer, pair.center1, pair.offsets);
     });
   }
   if (handle2 !== layer2) {
     handle2.on('drag', () => {
-      pair.center2 = getLayerCenter(map2, handle2);
-      applyGeometry(map2, layer2, pair.center2, pair.offsets);
+      pair.center2 = handle2.getLatLng();
+      applyGeometry(layer2, pair.center2, pair.offsets);
     });
   }
 
