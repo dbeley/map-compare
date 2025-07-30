@@ -1,6 +1,7 @@
 let syncZoom = true;
 let movingMap1 = false;
 let movingMap2 = false;
+const RAD = Math.PI / 180;
 
 function parsePosition(param) {
   if (!param) return null;
@@ -136,6 +137,31 @@ function createDragHandle(center) {
   const icon = L.divIcon({className: 'drag-handle', iconSize: [16, 16]});
   return L.marker(center, {icon, draggable: true, interactive: true});
 }
+// Scale longitude offsets so that shapes represent the same ground area
+// when duplicated at different latitudes.
+function scaleLngs(offsets, factor) {
+  if (!offsets) return offsets;
+  if (!Array.isArray(offsets)) {
+    return L.latLng(offsets.lat, offsets.lng * factor);
+  }
+  if (offsets.length && Array.isArray(offsets[0])) {
+    return offsets.map(o => scaleLngs(o, factor));
+  }
+  return offsets.map(o => L.latLng(o.lat, o.lng * factor));
+}
+
+function updateLayer2Geometry(pair) {
+  if (!pair.layer2.getLatLngs) {
+    pair.layer2.setLatLng(pair.center2);
+    return;
+  }
+  const f = Math.cos(pair.center1.lat * RAD) / Math.cos(pair.center2.lat * RAD);
+  const scaled = scaleLngs(pair.offsets, f);
+  pair.scaledOffsets = scaled;
+  applyGeometry(pair.layer2, pair.center2, scaled);
+  if (pair.handle2 !== pair.layer2) pair.handle2.setLatLng(pair.center2);
+}
+
 
 const shapePairs = [];
 
@@ -144,8 +170,11 @@ function createPair(layer) {
   const offsets = computeOffsets(layer, center1);
   const center2 = map2.getCenter();
   let layer2;
+  let scaledOffsets;
   if (layer.getLatLngs) {
-    layer2 = L.polygon(addLatLngs(offsets, center2), layer.options);
+    const f = Math.cos(center1.lat * RAD) / Math.cos(center2.lat * RAD);
+    scaledOffsets = scaleLngs(offsets, f);
+    layer2 = L.polygon(addLatLngs(scaledOffsets, center2), layer.options);
   } else {
     layer2 = L.marker(center2, Object.assign({}, layer.options, {draggable: true}));
   }
@@ -154,23 +183,30 @@ function createPair(layer) {
   if (layer.getLatLngs) handles1.addLayer(handle1);
   if (layer2.getLatLngs) handles2.addLayer(handle2);
 
-  const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2};
+  const pair = {layer1: layer, layer2, center1, center2, offsets, scaledOffsets, handle1, handle2};
 
   if (!layer.getLatLngs) {
-    layer.on('drag', () => { pair.center1 = getLayerCenterLatLng(layer); });
-    layer2.on('drag', () => { pair.center2 = getLayerCenterLatLng(layer2); });
+    layer.on('drag', () => {
+      pair.center1 = getLayerCenterLatLng(layer);
+      updateLayer2Geometry(pair);
+    });
+    layer2.on('drag', () => {
+      pair.center2 = getLayerCenterLatLng(layer2);
+      updateLayer2Geometry(pair);
+    });
   }
 
   if (handle1 !== layer) {
     handle1.on('drag', () => {
       pair.center1 = handle1.getLatLng();
       applyGeometry(layer, pair.center1, pair.offsets);
+      updateLayer2Geometry(pair);
     });
   }
   if (handle2 !== layer2) {
     handle2.on('drag', () => {
       pair.center2 = handle2.getLatLng();
-      applyGeometry(layer2, pair.center2, pair.offsets);
+      updateLayer2Geometry(pair);
     });
   }
 
