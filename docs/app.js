@@ -135,13 +135,13 @@ const shapePairs = [];
 function createPair(layer) {
   const center1 = getLayerCenterLatLng(layer);
   const offsets = computeOffsets(layer, center1);
+  const center2 = map2.getCenter();
   let layer2;
   if (layer.getLatLngs) {
-    layer2 = L.polygon(addLatLngs(offsets, center1), layer.options);
+    layer2 = L.polygon(addLatLngs(offsets, center2), layer.options);
   } else {
-    layer2 = L.marker(center1, Object.assign({}, layer.options, {draggable: true}));
+    layer2 = L.marker(center2, Object.assign({}, layer.options, {draggable: true}));
   }
-  const center2 = getLayerCenterLatLng(layer2);
   const handle1 = layer.getLatLngs ? createDragHandle(center1) : layer;
   const handle2 = layer2.getLatLngs ? createDragHandle(center2) : layer2;
   if (layer.getLatLngs) handles1.addLayer(handle1);

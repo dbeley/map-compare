@@ -8,3 +8,4 @@ Open `index.html` directly in a browser or host the repository with any static h
 It also stores whether map or satellite tiles are selected.
 
 Each shape has a drag handle at its center so you can move it freely. Shapes keep the same size across both maps and continue to do so even if you zoom before dragging. Once drawn a shape can't be edited, so redraw it if needed.
+When a new shape is created on the first map it is automatically duplicated on the second map at that map's current center so both panes show the drawing immediately.
