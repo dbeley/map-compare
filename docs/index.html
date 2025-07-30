@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Map Compare</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" integrity="sha256-XzD3RpaHPv7lzX9qt+2n1j5cWj48O24KsgaGYpKN8x8=" crossorigin="" />
@@ -10,8 +11,8 @@
 <body>
   <div id="header">
     <div id="header-left">
-      <button id="toggle-sync">Unsync zoom</button>
-      <button id="clear">Clear drawing</button>
+      <button id="toggle-sync" title="Toggle linked zoom">Zoom synced</button>
+      <button id="clear">Clear drawings</button>
       <label for="layer-select">Tiles:</label>
       <select id="layer-select">
         <option value="map">Map</option>
@@ -20,8 +21,8 @@
     </div>
     <div id="header-center">Map Compare</div>
     <div id="header-right">
-      Compare any two locations side by side. Source code on
-      <a href="https://github.com/dbeley/map-compare">GitHub</a>.
+      Compare any two locations side by side. Source on
+      <a href="https://github.com/dbeley/map-compare" target="_blank" rel="noopener">GitHub</a>.
     </div>
   </div>
   <div id="maps">

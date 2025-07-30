@@ -208,7 +208,7 @@ map2.on('moveend zoomend', function () {
 
 const toggleBtn = document.getElementById('toggle-sync');
 function updateToggleText() {
-  toggleBtn.textContent = syncZoom ? 'Unsync zoom' : 'Sync zoom';
+  toggleBtn.textContent = syncZoom ? 'Zoom synced' : 'Zoom unsynced';
 }
 updateToggleText();
 

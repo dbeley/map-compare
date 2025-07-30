@@ -1,6 +1,6 @@
 # map-compare
 
-This project provides a small static website that helps comparing two places of the world side by side. The maps are powered by Leaflet with OpenStreetMap tiles by default but can be switched to satellite imagery.
+This project provides a small static website that lets you compare two places of the world side by side. The maps are powered by Leaflet with OpenStreetMap tiles by default but can be switched to satellite imagery. The interface is responsive so it works on both desktop and mobile browsers.
 
 ## Usage
 
