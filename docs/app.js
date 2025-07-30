@@ -72,6 +72,10 @@ const drawnItems1 = new L.FeatureGroup();
 map1.addLayer(drawnItems1);
 const drawnItems2 = new L.FeatureGroup();
 map2.addLayer(drawnItems2);
+const handles1 = new L.FeatureGroup();
+map1.addLayer(handles1);
+const handles2 = new L.FeatureGroup();
+map2.addLayer(handles2);
 
 const drawControl = new L.Control.Draw({
   edit: { featureGroup: drawnItems1 },
@@ -168,8 +172,8 @@ function createPair(layer) {
   const center2 = getLayerCenter(map2, layer2);
   const handle1 = layer.getLatLngs ? createDragHandle(map1, center1) : layer;
   const handle2 = layer2.getLatLngs ? createDragHandle(map2, center2) : layer2;
-  if (layer.getLatLngs) drawnItems1.addLayer(handle1);
-  if (layer2.getLatLngs) drawnItems2.addLayer(handle2);
+  if (layer.getLatLngs) handles1.addLayer(handle1);
+  if (layer2.getLatLngs) handles2.addLayer(handle2);
 
   const pair = {layer1: layer, layer2, center1, center2, offsets, handle1, handle2};
 
@@ -241,10 +245,10 @@ map1.on('draw:deleted', e => {
     if (idx !== -1) {
       drawnItems2.removeLayer(shapePairs[idx].layer2);
       if (shapePairs[idx].handle1 !== shapePairs[idx].layer1) {
-        drawnItems1.removeLayer(shapePairs[idx].handle1);
+        handles1.removeLayer(shapePairs[idx].handle1);
       }
       if (shapePairs[idx].handle2 !== shapePairs[idx].layer2) {
-        drawnItems2.removeLayer(shapePairs[idx].handle2);
+        handles2.removeLayer(shapePairs[idx].handle2);
       }
       shapePairs.splice(idx, 1);
     }
@@ -257,10 +261,10 @@ map2.on('draw:deleted', e => {
     if (idx !== -1) {
       drawnItems1.removeLayer(shapePairs[idx].layer1);
       if (shapePairs[idx].handle1 !== shapePairs[idx].layer1) {
-        drawnItems1.removeLayer(shapePairs[idx].handle1);
+        handles1.removeLayer(shapePairs[idx].handle1);
       }
       if (shapePairs[idx].handle2 !== shapePairs[idx].layer2) {
-        drawnItems2.removeLayer(shapePairs[idx].handle2);
+        handles2.removeLayer(shapePairs[idx].handle2);
       }
       shapePairs.splice(idx, 1);
     }
@@ -270,6 +274,8 @@ map2.on('draw:deleted', e => {
 function clearDrawings() {
   drawnItems1.clearLayers();
   drawnItems2.clearLayers();
+  handles1.clearLayers();
+  handles2.clearLayers();
   shapePairs.length = 0;
 }
 
