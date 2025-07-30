@@ -17,3 +17,7 @@ html, body {
   background: #eee;
   height: 40px;
 }
+
+#controls > * {
+  margin-right: 5px;
+}
