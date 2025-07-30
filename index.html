@@ -9,17 +9,20 @@
 </head>
 <body>
   <div id="header">
-    Compare any two locations side by side. Source code on
-    <a href="https://github.com/dbeley/map-compare">GitHub</a>.
-  </div>
-  <div id="controls">
-    <button id="toggle-sync">Unsync zoom</button>
-    <button id="clear">Clear drawing</button>
-    <label for="layer-select">Tiles:</label>
-    <select id="layer-select">
-      <option value="map">Map</option>
-      <option value="satellite">Satellite</option>
-    </select>
+    <div id="header-left">
+      <button id="toggle-sync">Unsync zoom</button>
+      <button id="clear">Clear drawing</button>
+      <label for="layer-select">Tiles:</label>
+      <select id="layer-select">
+        <option value="map">Map</option>
+        <option value="satellite">Satellite</option>
+      </select>
+    </div>
+    <div id="header-center">Map Compare</div>
+    <div id="header-right">
+      Compare any two locations side by side. Source code on
+      <a href="https://github.com/dbeley/map-compare">GitHub</a>.
+    </div>
   </div>
   <div id="maps">
     <div id="map1" class="map"></div>

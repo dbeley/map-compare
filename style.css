@@ -5,28 +5,38 @@ html, body {
 
 #maps {
   display: flex;
-  height: calc(100% - 80px);
+  height: calc(100% - 40px);
 }
 
 .map {
   flex: 1;
 }
 
-#controls {
-  padding: 5px;
-  background: #eee;
-  height: 40px;
-}
 
-#controls > * {
-  margin-right: 5px;
-}
 
 #header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 5px;
   background: #333;
   color: #fff;
   height: 40px;
+}
+
+#header-left > *,
+#header-right > * {
+  margin-right: 5px;
+}
+
+#header-center {
+  flex: 1;
+  text-align: center;
+  font-weight: bold;
+}
+
+#header-right {
+  white-space: nowrap;
 }
 
 #header a {
