@@ -90,24 +90,36 @@ const drawControl = new L.Control.Draw({
 });
 map1.addControl(drawControl);
 
-function subtractLatLngs(latlngs, center) {
+function subtractLatLngs(latlngs, center, map) {
+  const zoom = map.getZoom();
   if (!Array.isArray(latlngs)) {
-    return L.latLng(latlngs.lat - center.lat, latlngs.lng - center.lng);
+    const p1 = map.project(latlngs, zoom);
+    const p2 = map.project(center, zoom);
+    return L.point(p1.x - p2.x, p1.y - p2.y);
   }
   if (latlngs.length && Array.isArray(latlngs[0])) {
-    return latlngs.map(ll => subtractLatLngs(ll, center));
+    return latlngs.map(ll => subtractLatLngs(ll, center, map));
   }
-  return latlngs.map(ll => L.latLng(ll.lat - center.lat, ll.lng - center.lng));
+  return latlngs.map(ll => {
+    const p1 = map.project(ll, zoom);
+    const p2 = map.project(center, zoom);
+    return L.point(p1.x - p2.x, p1.y - p2.y);
+  });
 }
 
-function addLatLngs(offsets, center) {
+function addLatLngs(offsets, center, map) {
+  const zoom = map.getZoom();
   if (!Array.isArray(offsets)) {
-    return L.latLng(offsets.lat + center.lat, offsets.lng + center.lng);
+    const p = map.project(center, zoom).add(offsets);
+    return map.unproject(p, zoom);
   }
   if (offsets.length && Array.isArray(offsets[0])) {
-    return offsets.map(o => addLatLngs(o, center));
+    return offsets.map(o => addLatLngs(o, center, map));
   }
-  return offsets.map(o => L.latLng(o.lat + center.lat, o.lng + center.lng));
+  return offsets.map(o => {
+    const p = map.project(center, zoom).add(o);
+    return map.unproject(p, zoom);
+  });
 }
 
 function getLayerCenterLatLng(layer) {
@@ -117,17 +129,17 @@ function getLayerCenterLatLng(layer) {
   return layer.getLatLng();
 }
 
-function applyGeometry(layer, center, offsets) {
+function applyGeometry(layer, center, offsets, map) {
   if (layer.getLatLngs) {
-    layer.setLatLngs(addLatLngs(offsets, center));
+    layer.setLatLngs(addLatLngs(offsets, center, map));
   } else {
     layer.setLatLng(center);
   }
 }
 
-function computeOffsets(layer, center) {
+function computeOffsets(layer, center, map) {
   if (layer.getLatLngs) {
-    return subtractLatLngs(layer.getLatLngs(), center);
+    return subtractLatLngs(layer.getLatLngs(), center, map);
   }
   return null;
 }
@@ -139,13 +151,20 @@ function createDragHandle(center) {
 
 const shapePairs = [];
 
+function updateAllShapes() {
+  shapePairs.forEach(p => {
+    applyGeometry(p.layer1, p.center1, p.offsets, map1);
+    applyGeometry(p.layer2, p.center2, p.offsets, map2);
+  });
+}
+
 function createPair(layer) {
   const center1 = getLayerCenterLatLng(layer);
-  const offsets = computeOffsets(layer, center1);
+  const offsets = computeOffsets(layer, center1, map1);
   const center2 = map2.getCenter();
   let layer2;
   if (layer.getLatLngs) {
-    layer2 = L.polygon(addLatLngs(offsets, center2), layer.options);
+    layer2 = L.polygon(addLatLngs(offsets, center2, map2), layer.options);
   } else {
     layer2 = L.marker(center2, Object.assign({}, layer.options, {draggable: true}));
   }
@@ -164,13 +183,13 @@ function createPair(layer) {
   if (handle1 !== layer) {
     handle1.on('drag', () => {
       pair.center1 = handle1.getLatLng();
-      applyGeometry(layer, pair.center1, pair.offsets);
+      applyGeometry(layer, pair.center1, pair.offsets, map1);
     });
   }
   if (handle2 !== layer2) {
     handle2.on('drag', () => {
       pair.center2 = handle2.getLatLng();
-      applyGeometry(layer2, pair.center2, pair.offsets);
+      applyGeometry(layer2, pair.center2, pair.offsets, map2);
     });
   }
 
@@ -244,11 +263,13 @@ function syncMap1() {
 
 map1.on('moveend zoomend', () => {
   if (syncZoom) syncMap2();
+  updateAllShapes();
   updateUrl();
 });
 
 map2.on('moveend zoomend', () => {
   if (syncZoom) syncMap1();
+  updateAllShapes();
   updateUrl();
 });
 
