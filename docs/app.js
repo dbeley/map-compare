@@ -84,6 +84,14 @@ const drawControl = new L.Control.Draw({
 });
 map1.addControl(drawControl);
 
+const editControl2 = new L.Control.Draw({
+  edit: {
+    featureGroup: drawnItems2
+  },
+  draw: false
+});
+map2.addControl(editControl2);
+
 const shapePairs = [];
 
 function latLngsToPoints(latlngs) {
@@ -96,6 +104,16 @@ function latLngsToPoints(latlngs) {
   return latlngs.map(ll => map1.latLngToContainerPoint(ll));
 }
 
+function latLngsToPoints2(latlngs) {
+  if (!Array.isArray(latlngs)) {
+    return map2.latLngToContainerPoint(latlngs);
+  }
+  if (latlngs.length && Array.isArray(latlngs[0])) {
+    return latlngs.map(latLngsToPoints2);
+  }
+  return latlngs.map(ll => map2.latLngToContainerPoint(ll));
+}
+
 function pointsToLatLngs(pts) {
   if (!Array.isArray(pts)) {
     return map2.containerPointToLatLng(pts);
@@ -104,6 +122,24 @@ function pointsToLatLngs(pts) {
     return pts.map(pointsToLatLngs);
   }
   return pts.map(p => map2.containerPointToLatLng(p));
+}
+
+function pointsToLatLngs1(pts) {
+  if (!Array.isArray(pts)) {
+    return map1.containerPointToLatLng(pts);
+  }
+  if (pts.length && Array.isArray(pts[0])) {
+    return pts.map(pointsToLatLngs1);
+  }
+  return pts.map(p => map1.containerPointToLatLng(p));
+}
+
+function applyPointsToLayer1(layer, pts) {
+  if (layer.setLatLngs) {
+    layer.setLatLngs(pointsToLatLngs1(pts));
+  } else if (layer.setLatLng) {
+    layer.setLatLng(pointsToLatLngs1(pts));
+  }
 }
 
 function applyPointsToLayer(layer, pts) {
@@ -167,6 +203,30 @@ map1.on('draw:deleted', function (e) {
     const idx = shapePairs.findIndex(p => p.layer1 === layer);
     if (idx !== -1) {
       drawnItems2.removeLayer(shapePairs[idx].layer2);
+      shapePairs.splice(idx, 1);
+    }
+  });
+});
+
+map2.on('draw:edited', function (e) {
+  e.layers.eachLayer(function (layer) {
+    const idx = shapePairs.findIndex(p => p.layer2 === layer);
+    if (idx !== -1) {
+      if (layer.getLatLngs) {
+        shapePairs[idx].points = latLngsToPoints2(layer.getLatLngs());
+      } else {
+        shapePairs[idx].points = map2.latLngToContainerPoint(layer.getLatLng());
+      }
+      applyPointsToLayer1(shapePairs[idx].layer1, shapePairs[idx].points);
+    }
+  });
+});
+
+map2.on('draw:deleted', function (e) {
+  e.layers.eachLayer(function (layer) {
+    const idx = shapePairs.findIndex(p => p.layer2 === layer);
+    if (idx !== -1) {
+      drawnItems1.removeLayer(shapePairs[idx].layer1);
       shapePairs.splice(idx, 1);
     }
   });
