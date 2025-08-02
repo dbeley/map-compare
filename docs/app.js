@@ -22,6 +22,7 @@ function updateUrl() {
   url.searchParams.set('map2', `${c2.lat.toFixed(4)},${c2.lng.toFixed(4)},${z2}`);
   url.searchParams.set('sync', syncZoom ? '1' : '0');
   url.searchParams.set('layer', currentLayer);
+  url.searchParams.set('lang', mapLang);
   history.replaceState(null, '', url);
 }
 
@@ -30,15 +31,18 @@ const pos1 = parsePosition(params.get('map1')) || {lat: 0, lng: 0, zoom: 2};
 const pos2 = parsePosition(params.get('map2')) || pos1;
 syncZoom = params.get('sync') !== '0';
 let currentLayer = params.get('layer') === 'satellite' ? 'satellite' : 'map';
+const defaultLang = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
+const mapLang = (params.get('lang') || defaultLang).split('-')[0];
 
 const map1 = L.map('map1').setView([pos1.lat, pos1.lng], pos1.zoom);
 const map2 = L.map('map2').setView([pos2.lat, pos2.lng], pos2.zoom);
 
-const osm1 = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors'
+const osmUrl = `https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png?lang=${mapLang}`;
+const osm1 = L.tileLayer(osmUrl, {
+  attribution: 'Wikimedia | © OpenStreetMap contributors'
 });
-const osm2 = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors'
+const osm2 = L.tileLayer(osmUrl, {
+  attribution: 'Wikimedia | © OpenStreetMap contributors'
 });
 const sat1 = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
   attribution: 'Tiles © Esri'
